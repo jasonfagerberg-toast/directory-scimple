@@ -19,6 +19,7 @@
 
 package org.apache.directory.scim.core.repository;
 
+import java.util.HashMap;
 import lombok.SneakyThrows;
 import org.apache.directory.scim.core.schema.SchemaRegistry;
 import org.apache.directory.scim.spec.extension.EnterpriseExtension;
@@ -55,6 +56,22 @@ public class PatchHandlerTest {
     schemaRegistry.addSchema(ScimGroup.class, null);
     this.patchHandler = new DefaultPatchHandler(schemaRegistry);
   }
+
+  @Test
+  public void applyReplaceEntireEnterpriseExtension() {
+    String enterpriseExtensionUrn = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User";
+    Map<String, String> enterpriseExtensionValue = new HashMap<>();
+    enterpriseExtensionValue.put("costCenter", "New Cost Center");
+    enterpriseExtensionValue.put("department", "New Department");
+    PatchOperation op = patchOperation(REPLACE, enterpriseExtensionUrn, enterpriseExtensionValue);
+    // This throws an NPE because DefaultPatchHandler is treating the path as an exact path to a simple attribute and not a path to a complex attribute
+    ScimUser updatedUser = patchHandler.apply(user(), List.of(op));
+    EnterpriseExtension actual = (EnterpriseExtension) updatedUser.getExtension("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User");
+    assertThat(actual).isNotNull();
+    assertThat(actual.getCostCenter()).isEqualTo("New Cost Center");
+    assertThat(actual.getDepartment()).isEqualTo("new Department");
+  }
+
 
   @Test
   public void applyReplaceUserName()  {
