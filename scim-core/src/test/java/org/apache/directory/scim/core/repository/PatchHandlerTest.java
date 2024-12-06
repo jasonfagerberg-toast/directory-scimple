@@ -19,7 +19,16 @@
 
 package org.apache.directory.scim.core.repository;
 
-import java.util.HashMap;
+import static java.util.Map.entry;
+import static org.apache.directory.scim.spec.patch.PatchOperation.Type.ADD;
+import static org.apache.directory.scim.spec.patch.PatchOperation.Type.REMOVE;
+import static org.apache.directory.scim.spec.patch.PatchOperation.Type.REPLACE;
+import static org.apache.directory.scim.test.assertj.ScimpleAssertions.scimAssertThat;
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import lombok.SneakyThrows;
 import org.apache.directory.scim.core.schema.SchemaRegistry;
 import org.apache.directory.scim.spec.extension.EnterpriseExtension;
@@ -37,15 +46,6 @@ import org.apache.directory.scim.spec.resources.ScimGroup;
 import org.apache.directory.scim.spec.resources.ScimUser;
 import org.junit.jupiter.api.Test;
 
-import static org.apache.directory.scim.spec.patch.PatchOperation.Type.*;
-import static java.util.Map.entry;
-import static org.apache.directory.scim.test.assertj.ScimpleAssertions.scimAssertThat;
-import static org.assertj.core.api.Assertions.assertThat;
-
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-
 public class PatchHandlerTest {
 
   DefaultPatchHandler patchHandler;
@@ -60,12 +60,13 @@ public class PatchHandlerTest {
   @Test
   public void applyReplaceEntireEnterpriseExtension() {
     String enterpriseExtensionUrn = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User";
-    Map<String, String> enterpriseExtensionValue = new HashMap<>();
-    enterpriseExtensionValue.put("costCenter", "New Cost Center");
-    enterpriseExtensionValue.put("department", "New Department");
+    Map<String, String> enterpriseExtensionValue = Map.ofEntries(
+            entry("costCenter", "New Cost Center"),
+            entry("department", "New Department")
+    );
     PatchOperation op = patchOperation(REPLACE, enterpriseExtensionUrn, enterpriseExtensionValue);
     ScimUser updatedUser = patchHandler.apply(user(), List.of(op));
-    EnterpriseExtension actual = (EnterpriseExtension) updatedUser.getExtension("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User");
+    EnterpriseExtension actual = (EnterpriseExtension) updatedUser.getExtension(enterpriseExtensionUrn);
     assertThat(actual).isNotNull();
     assertThat(actual.getCostCenter()).isEqualTo("New Cost Center");
     assertThat(actual.getDepartment()).isEqualTo("New Department");
@@ -74,13 +75,13 @@ public class PatchHandlerTest {
   @Test
   public void applyReplaceEntireEnterpriseExtensionWithNullPath() {
     String enterpriseExtensionUrn = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User";
-    Map<String, String> enterpriseExtensionValue = Map.of(
-        "costCenter", "New Cost Center",
-        "department", "New Department"
+    Map<String, String> enterpriseExtensionValue = Map.ofEntries(
+        entry("costCenter", "New Cost Center"),
+        entry("department", "New Department")
     );
     PatchOperation op = patchOperation(REPLACE, null, Map.of(enterpriseExtensionUrn, enterpriseExtensionValue));
     ScimUser updatedUser = patchHandler.apply(user(), List.of(op));
-    EnterpriseExtension actual = (EnterpriseExtension) updatedUser.getExtension("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User");
+    EnterpriseExtension actual = (EnterpriseExtension) updatedUser.getExtension(enterpriseExtensionUrn);
     assertThat(actual).isNotNull();
     assertThat(actual.getCostCenter()).isEqualTo("New Cost Center");
     assertThat(actual.getDepartment()).isEqualTo("New Department");
@@ -91,7 +92,7 @@ public class PatchHandlerTest {
     String enterpriseExtensionUrn = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User";
     PatchOperation op = patchOperation(REMOVE, enterpriseExtensionUrn, null);
     ScimUser updatedUser = patchHandler.apply(user(), List.of(op));
-    assertThat(updatedUser.getExtension("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User")).isNull();
+    assertThat(updatedUser.getExtension(enterpriseExtensionUrn)).isNull();
   }
 
   @Test
