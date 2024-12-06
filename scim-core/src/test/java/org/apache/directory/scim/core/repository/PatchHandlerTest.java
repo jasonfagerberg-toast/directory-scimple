@@ -72,6 +72,21 @@ public class PatchHandlerTest {
   }
 
   @Test
+  public void applyReplaceEntireEnterpriseExtensionWithNullPath() {
+    String enterpriseExtensionUrn = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User";
+    Map<String, String> enterpriseExtensionValue = Map.of(
+        "costCenter", "New Cost Center",
+        "department", "New Department"
+    );
+    PatchOperation op = patchOperation(REPLACE, null, Map.of(enterpriseExtensionUrn, enterpriseExtensionValue));
+    ScimUser updatedUser = patchHandler.apply(user(), List.of(op));
+    EnterpriseExtension actual = (EnterpriseExtension) updatedUser.getExtension("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User");
+    assertThat(actual).isNotNull();
+    assertThat(actual.getCostCenter()).isEqualTo("New Cost Center");
+    assertThat(actual.getDepartment()).isEqualTo("New Department");
+  }
+
+  @Test
   public void applyRemoveEntireEnterpriseExtension() {
     String enterpriseExtensionUrn = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User";
     PatchOperation op = patchOperation(REMOVE, enterpriseExtensionUrn, null);
