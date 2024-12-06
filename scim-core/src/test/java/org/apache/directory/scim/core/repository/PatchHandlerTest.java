@@ -19,16 +19,6 @@
 
 package org.apache.directory.scim.core.repository;
 
-import static java.util.Map.entry;
-import static org.apache.directory.scim.spec.patch.PatchOperation.Type.ADD;
-import static org.apache.directory.scim.spec.patch.PatchOperation.Type.REMOVE;
-import static org.apache.directory.scim.spec.patch.PatchOperation.Type.REPLACE;
-import static org.apache.directory.scim.test.assertj.ScimpleAssertions.scimAssertThat;
-import static org.assertj.core.api.Assertions.assertThat;
-
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import lombok.SneakyThrows;
 import org.apache.directory.scim.core.schema.SchemaRegistry;
 import org.apache.directory.scim.spec.extension.EnterpriseExtension;
@@ -45,6 +35,15 @@ import org.apache.directory.scim.spec.resources.PhoneNumber;
 import org.apache.directory.scim.spec.resources.ScimGroup;
 import org.apache.directory.scim.spec.resources.ScimUser;
 import org.junit.jupiter.api.Test;
+
+import static org.apache.directory.scim.spec.patch.PatchOperation.Type.*;
+import static java.util.Map.entry;
+import static org.apache.directory.scim.test.assertj.ScimpleAssertions.scimAssertThat;
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 public class PatchHandlerTest {
 
