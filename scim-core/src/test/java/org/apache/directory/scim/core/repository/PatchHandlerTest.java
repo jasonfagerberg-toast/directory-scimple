@@ -69,7 +69,7 @@ public class PatchHandlerTest {
     EnterpriseExtension actual = (EnterpriseExtension) updatedUser.getExtension("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User");
     assertThat(actual).isNotNull();
     assertThat(actual.getCostCenter()).isEqualTo("New Cost Center");
-    assertThat(actual.getDepartment()).isEqualTo("new Department");
+    assertThat(actual.getDepartment()).isEqualTo("New Department");
   }
 
 
