@@ -132,10 +132,50 @@ public class DefaultPatchHandler implements PatchHandler {
     // if the attribute has a URN, assume it's an extension that URN does not match the baseUrn
     if (attributeReference.hasUrn() && !attributeReference.getUrn().equals(source.getBaseUrn())) {
       Schema schema = this.schemaRegistry.getSchema(attributeReference.getUrn());
-      Attribute attribute = schema.getAttribute(attributeReference.getAttributeName());
-      checkMutability(schema.getAttributeFromPath(attributeReference.getFullAttributeName()));
 
-      patchOperationHandler.applyExtensionValue(source, sourceAsMap, schema, attribute, valuePathExpression, attributeReference.getUrn(), patchOperation.getValue());
+      if (schema != null) {
+        Attribute attribute = schema.getAttribute(attributeReference.getAttributeName());
+        checkMutability(schema.getAttributeFromPath(attributeReference.getFullAttributeName()));
+
+        patchOperationHandler.applyExtensionValue(source, sourceAsMap, schema, attribute, valuePathExpression, attributeReference.getUrn(), patchOperation.getValue());
+      } else {
+        // If schema is null, it's either the root of an extension, or an invalid patch path
+        // It's not possible from the antlr parser to tell the diff between 'this:is:extension:urn' and 'this:is:extension:urn:attribute'
+        // Check if the fully qualified attribute is a valid schema
+        schema = this.schemaRegistry.getSchema(attributeReference.getFullyQualifiedAttributeName());
+        if (schema == null) {
+          throw new IllegalArgumentException("Invalid attribute path found in patch request: " + attributeReference);
+        }
+
+        // root extension object found, per RFC, the value of the patch must be a Map
+        if (!(patchOperation.getValue() instanceof Map)) {
+          throw new IllegalArgumentException("Invalid patch value for root of extension, expected map");
+        }
+
+        // loop through each attribute and update them
+        Map<String, ?> mapValue = (Map<String, ?>) patchOperation.getValue();
+        for (Map.Entry<String, ?> entry : mapValue.entrySet()) {
+          String attributeName = entry.getKey();
+          Attribute attribute = schema.getAttribute(attributeName);
+          checkMutability(attribute);
+
+          // recreate the valuePathExpression using each child attribute
+          ValuePathExpression extensionValuePathExpression = new ValuePathExpression(new AttributeReference(schema.getUrn(), attributeName));
+
+          // ensure the sourceAsMap contains the extensions object, create one if needed.
+          PatchOperation.Type op = patchOperation.getOperation();
+          if (op == PatchOperation.Type.ADD || op == PatchOperation.Type.REPLACE) {
+            sourceAsMap.computeIfAbsent(schema.getUrn(), k -> new HashMap<>());
+            List<String> schemas = (List<String>) sourceAsMap.get("schemas");
+            if (!schemas.contains(attributeName)) {
+              schemas.add(attributeName);
+            }
+          }
+
+          // now update the sourceAsMap
+          patchOperationHandler.applyExtensionValue(source, sourceAsMap, schema, attribute, extensionValuePathExpression, schema.getUrn(), entry.getValue());
+        }
+      }
     } else {
       Schema schema = this.schemaRegistry.getSchema(source.getBaseUrn());
       Attribute attribute = schema.getAttribute(attributeReference.getAttributeName());
