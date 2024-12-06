@@ -64,7 +64,6 @@ public class PatchHandlerTest {
     enterpriseExtensionValue.put("costCenter", "New Cost Center");
     enterpriseExtensionValue.put("department", "New Department");
     PatchOperation op = patchOperation(REPLACE, enterpriseExtensionUrn, enterpriseExtensionValue);
-    // This throws an NPE because DefaultPatchHandler is treating the path as an exact path to a simple attribute and not a path to a complex attribute
     ScimUser updatedUser = patchHandler.apply(user(), List.of(op));
     EnterpriseExtension actual = (EnterpriseExtension) updatedUser.getExtension("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User");
     assertThat(actual).isNotNull();
@@ -72,6 +71,13 @@ public class PatchHandlerTest {
     assertThat(actual.getDepartment()).isEqualTo("New Department");
   }
 
+  @Test
+  public void applyRemoveEntireEnterpriseExtension() {
+    String enterpriseExtensionUrn = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User";
+    PatchOperation op = patchOperation(REMOVE, enterpriseExtensionUrn, null);
+    ScimUser updatedUser = patchHandler.apply(user(), List.of(op));
+    assertThat(updatedUser.getExtension("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User")).isNull();
+  }
 
   @Test
   public void applyReplaceUserName()  {

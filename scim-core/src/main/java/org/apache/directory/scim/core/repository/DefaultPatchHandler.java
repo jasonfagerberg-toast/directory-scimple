@@ -147,34 +147,7 @@ public class DefaultPatchHandler implements PatchHandler {
           throw new IllegalArgumentException("Invalid attribute path found in patch request: " + attributeReference);
         }
 
-        // root extension object found, per RFC, the value of the patch must be a Map
-        if (!(patchOperation.getValue() instanceof Map)) {
-          throw new IllegalArgumentException("Invalid patch value for root of extension, expected map");
-        }
-
-        // loop through each attribute and update them
-        Map<String, ?> mapValue = (Map<String, ?>) patchOperation.getValue();
-        for (Map.Entry<String, ?> entry : mapValue.entrySet()) {
-          String attributeName = entry.getKey();
-          Attribute attribute = schema.getAttribute(attributeName);
-          checkMutability(attribute);
-
-          // recreate the valuePathExpression using each child attribute
-          ValuePathExpression extensionValuePathExpression = new ValuePathExpression(new AttributeReference(schema.getUrn(), attributeName));
-
-          // ensure the sourceAsMap contains the extensions object, create one if needed.
-          PatchOperation.Type op = patchOperation.getOperation();
-          if (op == PatchOperation.Type.ADD || op == PatchOperation.Type.REPLACE) {
-            sourceAsMap.computeIfAbsent(schema.getUrn(), k -> new HashMap<>());
-            List<String> schemas = (List<String>) sourceAsMap.get("schemas");
-            if (!schemas.contains(attributeName)) {
-              schemas.add(attributeName);
-            }
-          }
-
-          // now update the sourceAsMap
-          patchOperationHandler.applyExtensionValue(source, sourceAsMap, schema, attribute, extensionValuePathExpression, schema.getUrn(), entry.getValue());
-        }
+        patchOperationHandler.applyRootExtensionValue(source, sourceAsMap, schema, patchOperation.getValue());
       }
     } else {
       Schema schema = this.schemaRegistry.getSchema(source.getBaseUrn());
@@ -266,6 +239,28 @@ public class DefaultPatchHandler implements PatchHandler {
         }
       } else {
         this.applySingleValue(data, attribute, valuePathExpression.getAttributePath(), value);
+      }
+    }
+
+    default <T extends ScimResource> void applyRootExtensionValue(final T source, Map<String, Object> sourceAsMap, Schema schema, Object value) {
+
+      // root extension object found, per RFC, the value of the patch must be a Map
+      if (!(value instanceof Map)) {
+        throw new IllegalArgumentException("Invalid patch value for root of extension, expected map");
+      }
+
+      // loop through each attribute and update them
+      Map<String, ?> mapValue = (Map<String, ?>) value;
+      for (Map.Entry<String, ?> entry : mapValue.entrySet()) {
+        String attributeName = entry.getKey();
+        Attribute attribute = schema.getAttribute(attributeName);
+        checkMutability(attribute);
+
+        // recreate the valuePathExpression using each child attribute
+        ValuePathExpression extensionValuePathExpression = new ValuePathExpression(new AttributeReference(schema.getUrn(), attributeName));
+
+        // now update the sourceAsMap
+        applyExtensionValue(source, sourceAsMap, schema, attribute, extensionValuePathExpression, schema.getUrn(), entry.getValue());
       }
     }
 
@@ -370,6 +365,21 @@ public class DefaultPatchHandler implements PatchHandler {
   private static class ReplaceOperationHandler implements PatchOperationHandler {
 
     @Override
+    public <T extends ScimResource> void applyExtensionValue(T source, Map<String, Object> sourceAsMap, Schema schema, Attribute attribute, ValuePathExpression valuePathExpression, String urn, Object value) {
+
+      // add the extension URN
+      Collection<String> schemas = (Collection<String>) sourceAsMap.get("schemas");
+      schemas.add(urn);
+
+      // if the extension object does not yet exist, create it
+      if (!sourceAsMap.containsKey(urn)) {
+        sourceAsMap.put(urn, new HashMap<>());
+      }
+
+      PatchOperationHandler.super.applyExtensionValue(source, sourceAsMap, schema, attribute, valuePathExpression, urn, value);
+    }
+
+    @Override
     public void applySingleValue(Map<String, Object> sourceAsMap, Attribute attribute, AttributeReference attributeReference, Object value) {
       if (attributeReference.hasSubAttribute()) {
         Map<String, Object> parentValue = (Map<String, Object>) sourceAsMap.get(attributeReference.getAttributeName());
@@ -436,6 +446,22 @@ public class DefaultPatchHandler implements PatchHandler {
       } else {
         // call super (default method of interface)
         PatchOperationHandler.super.applyValue(source, sourceAsMap, schema, attribute, valuePathExpression, value);
+      }
+    }
+
+    @Override
+    public <T extends ScimResource> void applyRootExtensionValue(T source, Map<String, Object> sourceAsMap, Schema schema, Object value) {
+
+      // remove the whole extension if value is null
+      if (value == null) {
+        // remove the schema definition
+        Collection<String> schemas = (Collection<String>) sourceAsMap.get("schemas");
+        schemas.remove(schema.getUrn());
+
+        // remove the root extension object
+        sourceAsMap.remove(schema.getUrn());
+      } else {
+        throw new IllegalArgumentException("Unsupported remove operation, expected patch value to be null when removing full extension object.");
       }
     }
 
